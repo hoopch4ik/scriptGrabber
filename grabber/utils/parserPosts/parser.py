@@ -25,7 +25,7 @@ logging.basicConfig(
     encoding='utf-8'
 )
 
-logs = os.getcwd()+"../temp"
+logs = "grabber/tempFiles"
 
 class Logs:
     
