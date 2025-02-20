@@ -8,7 +8,7 @@ from telethon.tl.types import ChannelParticipantsSearch
 # класс для работы с сообщениями
 from telethon.tl.functions.messages import GetHistoryRequest
 
-from ....grabber.config import LOGGING_INFO_FILE, LAST_ID_POSTS_FILE
+from grabber.config import LOGGING_INFO_FILE, LAST_ID_POSTS_FILE
 
 
 from datetime import date, datetime
