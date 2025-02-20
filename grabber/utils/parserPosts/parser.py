@@ -25,7 +25,7 @@ logging.basicConfig(
     encoding='utf-8'
 )
 
-logs = "grabber/tempFiles"
+logs = "grabber"
 
 class Logs:
     
