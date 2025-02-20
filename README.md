@@ -1,4 +1,4 @@
-```diff
+
 
 --- Скрипт Граббер Постов С Телеграм Каналов или Групп ---
 
@@ -29,4 +29,3 @@
     --- pip install -r requirements.txt
     --- python main.py
     ```
-```
