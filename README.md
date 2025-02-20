@@ -24,8 +24,8 @@
 
     (обязательно должен стоять python3^)
     ```
-    --- python -m venv .venv            (или вместо python -> python3, py)
-    --- .venv/Scripts/activate
-    --- pip install -r requirements.txt
-    --- python main.py
+    python -m venv .venv            (или вместо python -> python3, py)
+    .venv/Scripts/activate
+    pip install -r requirements.txt
+    python main.py
     ```
