@@ -23,9 +23,11 @@
 ЧЕРЕДА КОММАНД (Windows):
 
     (обязательно должен стоять python3^)
-    ```
-    python -m venv .venv            (или вместо python -> python3, py)
-    .venv/Scripts/activate
-    pip install -r requirements.txt
-    python main.py
-    ```
+<ul>
+    <li>python -m venv .venv <span>(или вместо python -> python3, py)</span></li>
+    <li>.venv/Scripts/activate</li>
+    <li>pip install -r requirements.txt</li>
+    <li>python main.py</li>
+</ul>
+
+
