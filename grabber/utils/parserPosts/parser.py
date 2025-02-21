@@ -13,10 +13,8 @@ from grabber.config import LOGGING_INFO_FILE, LAST_ID_POSTS_FILE
 
 from datetime import date, datetime
 import json
-from ast import literal_eval
 import os
 import logging
-import time
 import asyncio
 
 logging.basicConfig(
@@ -29,7 +27,6 @@ logs = "grabber"
 
 class Logs:
     
-    
     def writeLastPostId(self, channelId:str, new_last_post_id:int)->bool:
         channelId = str(channelId)
         try:
@@ -37,15 +34,10 @@ class Logs:
                 try:
                     f.seek(0)
                     content = f.read()
-                    logging.info('Контент файла: \n'+content)
                     last_posts_ids = json.loads(content)
-                    logging.info('В формате Dictionary: \n', last_posts_ids)
                     last_posts_ids[channelId]=new_last_post_id
-                    logging.info('Изменено')
-                    logging.info(f'Новый >>> {last_posts_ids}')
                     f.truncate(0)
                     f.write(json.dumps(last_posts_ids))
-                    logging.info('Перезаписано')
                 except json.JSONDecodeError as e:
                     f.write(json.dumps({channelId: new_last_post_id}))
                     logging.info(e.msg)
@@ -149,22 +141,29 @@ class ParserActions(MiddleWare, SessionConnect, Logs):
 
         for channel in self.info_channels:
             logging.info(f'Запуск парсинга канала: {channel}')
-            
-            history = await self.client(GetHistoryRequest(
+
+            try:
+                history = await self.client(GetHistoryRequest(
                 peer=channel,
                 offset_id=offset_msg,
                 offset_date=None, add_offset=0,
                 limit=self.limit_msg, max_id=0, min_id=0,
                 hash=0
                 ))
+            except Exception as e:
+                logging.error(f'Ошибка при получении истории постов канала: {channel}, {e}')
+                continue
 
             messages = history.messages
             i = len(messages)-1
 
             while i > -1:
-                channel_id = messages[i].to_dict()['peer_id']['channel_id']
-                
-                post_id = messages[i].to_dict()['id']
+                try:
+                    channel_id = messages[i].to_dict()['peer_id']['channel_id']
+                    post_id = messages[i].to_dict()['id']
+                except Exception as e:
+                    logging.error(f'Ошибка при получении id поста: {e}')
+                    continue
                 last_post_id = self.getLastPostId(channel_id)
 
                 
@@ -191,10 +190,18 @@ class MyParser(ParserActions):
     
     async def _main(self):
         while True:
-            # С помощью метода self.client.get_entity(channel) ложим в список информацию о каждом канале
-            self.info_channels = [await self.client.get_entity(channel) for channel in self.info_channels]
+            try:
+                # С помощью метода self.client.get_entity(channel) ложим в список информацию о каждом канале
+                self.info_channels = [await self.client.get_entity(channel) for channel in self.info_channels]
+            except Exception as e:
+                logging.error(f'Ошибка при получении информации о каналах: {e}')
+                continue
             # Запускаем функцию для дампа сообщений из каналов
-            await self.dump_all_messages()
+            try:
+                await self.dump_all_messages()
+            except Exception as e:
+                logging.error(f'Ошибка при парсинге каналов: {e}')
+                continue
             await asyncio.sleep(self.timeout) # Задержка между парсингом каналов в секундах
     
     async def parse(self, info_channels:list, to_channels:list, limit:int=5, timeout:int=15):
