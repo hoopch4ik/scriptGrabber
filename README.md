@@ -1,33 +1,42 @@
+## Telegram Post Grabber Script
 
+This script allows you to grab posts from Telegram channels and forward them to other channels or groups.
 
---- Скрипт Граббер Постов С Телеграм Каналов или Групп ---
+**Requirements:**
 
+•   Python 3.0 or higher
+•   Telegram account API ID and API HASH (see instructions below)
 
-ДЛЯ НАЧАЛА ВАМ НУЖНО ПОЛУЧИТЬ API_ID И API_HASH ТЕЛЕГРАММ АККАУНТА (link: https://my.telegram.org/auth?to=apps) <br/>
-ПРИ ПЕРВОМ ЗАПУСКЕ ПОТРЕБУЕТСЯ ВВЕСТИ НОМЕР ТЕЛЕФОНА, КОД (ПРИЛЕТИТ В ТЕЛЕГРАМ) И ПАРОЛЬ ЕСЛИ 2FA
+**Getting API ID and API HASH:**
 
+1.  Go to [https://my.telegram.org/auth?to=apps](https://my.telegram.org/auth?to=apps)
+2.  Log in with your Telegram account.
+3.  Create a new app to obtain your `API_ID` and `API_HASH`.
 
-НАСТРОЙКА КОНФИГУРАЦИИ:
+**Important Note:** The first time you run the script, you will be prompted to enter your phone number, the code sent to your Telegram account, and your 2FA password if enabled.
 
-    Директория "grabber/config":
+## Configuration
 
-        info_channels.txt => каналы источники
-        to_channels.txt => каналы назначения
+Edit the configuration files located in the `./grabber/config` directory:
 
-        ---
+•   **`info_channels.txt`**: List of source channels.
+•   **`to_channels.txt`**: List of destination channels.
 
-        !!! Одна строчка - Один канал
-        !!! Если канал закрытый - то вписываете id канала (например, этот бот выдаёт id - @UserInfoToBot)
+**Format:**
 
+•   One channel per line.
+•   For private channels, enter the channel ID.  You can use a bot like [@UserInfoToBot](https://t.me/UserInfoToBot) to retrieve the channel ID.
 
-ЧЕРЕДА КОММАНД (Windows):
+## Installation and Usage (Windows)
 
-    (обязательно должен стоять python3^)
-<ul>
-    <li>python -m venv .venv <span>(или вместо python -> python3, py)</span></li>
-    <li>.venv/Scripts/activate</li>
-    <li>pip install -r requirements.txt</li>
-    <li>python main.py</li>
-</ul>
+1.  **Create a virtual environment:**
+```python -m venv .venv  # or python3 -m venv .venv, or py -m venv .venv```
 
-- 6H
+2.  Activate the virtual environment:
+```.venv/Scripts/activate```
+
+3.  Install dependencies:
+```pip install -r requirements.txt```
+
+4.  Run the script:
+```python main.py```
