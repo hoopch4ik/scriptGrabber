@@ -230,8 +230,8 @@ class ParserActions(MiddleWare, SessionConnect, Logs):
             elif isinstance(media, MessageMediaWebPage):
                 media = None
             else:
-                print(type(media))
-                raise TypeError("Неожидаемый тип документа")
+                logging.error("Неожидаемый тип документа: " + str(type(media)))
+                raise TypeError("Неожидаемый тип документа" + str(type(media)))
 
 
             if result_messages.get(mixed_id):
@@ -260,7 +260,11 @@ class ParserActions(MiddleWare, SessionConnect, Logs):
         for channel in self.info_channels:
             logging.info(f'Запуск парсинга канала: {channel}')
 
-            messages = await self.__get_history(channel)
+            
+            try:
+                messages = await self.__get_history(channel)
+            except:
+                continue
             messages = list(messages.values())
 
 
