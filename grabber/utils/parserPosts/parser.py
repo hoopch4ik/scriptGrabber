@@ -231,7 +231,8 @@ class ParserActions(MiddleWare, SessionConnect, Logs):
                 media = None
             else:
                 logging.error("Неожидаемый тип документа: " + str(type(media)))
-                raise TypeError("Неожидаемый тип документа" + str(type(media)))
+                media = None
+                # raise TypeError("Неожидаемый тип документа" + str(type(media)))
 
 
             if result_messages.get(mixed_id):
