@@ -2,16 +2,25 @@ from telethon import TelegramClient
 
 
 # классы для работы с каналами
-from telethon.tl.functions.channels import GetParticipantsRequest
-from telethon.tl.types import ChannelParticipantsSearch
+# from telethon.tl.functions.channels import GetParticipantsRequest
+# from telethon.tl.types import ChannelParticipantsSearch
 
 # класс для работы с сообщениями
 from telethon.tl.functions.messages import GetHistoryRequest
+from telethon.tl.types import (
+    MessageMediaPhoto,
+    MessageMediaDocument,
+    InputPhoto,
+    InputDocument,
+    Message,
+    MessageMediaWebPage
+)
+from telethon.errors.rpcerrorlist import MediaCaptionTooLongError
 
-from grabber.config import LOGGING_INFO_FILE, LAST_ID_POSTS_FILE
+
+from config import LOGGING_INFO_FILE, LAST_ID_POSTS_FILE
 
 
-from datetime import date, datetime
 import json
 import os
 import logging
@@ -23,43 +32,81 @@ logging.basicConfig(
     encoding='utf-8'
 )
 
-logs = "grabber"
+LOGS_DIR = os.getcwd()+"/grabber/utils/temp/"
+OFFSET_MSG = 0
+MAX_CAPTION_LENGTH = 1024
+
+
+
+
 
 class Logs:
     
-    def writeLastPostId(self, channelId:str, new_last_post_id:int)->bool:
-        channelId = str(channelId)
+    
+    def writeLastPostId(self, my_channel_peer:str|int, to_channel_peer:str|int, new_last_post_id:int)->bool:
+        my_channel_peer = str(my_channel_peer)
+        to_channel_peer = str(to_channel_peer)
+        
         try:
-            with open(os.path.join(logs, LAST_ID_POSTS_FILE), 'a+', encoding='utf-8') as f:
+            with open(os.path.join(LOGS_DIR, LAST_ID_POSTS_FILE), 'a+', encoding='utf-8') as f:
                 try:
                     f.seek(0)
                     content = f.read()
-                    last_posts_ids = json.loads(content)
-                    last_posts_ids[channelId]=new_last_post_id
+                    if not content:
+                        content = "{}"
+                        
+                    json_data: dict = json.loads(content)
+                    json_data_to_channels = json_data.get(my_channel_peer) or {}
+                    
+                    json_data = {**json_data,
+                        my_channel_peer: {
+                            **json_data_to_channels,
+                            to_channel_peer:new_last_post_id
+                        }
+                    }
+                    
+                    
                     f.truncate(0)
-                    f.write(json.dumps(last_posts_ids))
+                    f.write(json.dumps(json_data, indent=4))
                 except json.JSONDecodeError as e:
-                    f.write(json.dumps({channelId: new_last_post_id}))
-                    logging.info(e.msg)
+                    # f.write(json.dumps({channelId: new_last_post_id}))
+                    # logging.info(e.msg)
+                    logging.error(e.msg)
+                    print(e)
+                    
             return True
         except FileNotFoundError:
-            with open(os.path.join(logs, LAST_ID_POSTS_FILE), 'a+', encoding='utf-8') as f:
+            with open(os.path.join(LOGS_DIR, LAST_ID_POSTS_FILE), 'a+', encoding='utf-8') as f:
                 pass
-            logging.error(f'Файл {LAST_ID_POSTS_FILE} не найден. Создал новый')
-            return self.writeLastPostId(channelId, new_last_post_id)
+            return self.writeLastPostId(my_channel_peer, to_channel_peer, new_last_post_id)
 
         except Exception as e:
             logging.error(e)
+            print(e)
             return False
 
-    def getLastPostId(self, channelId:str)->int|bool:
-        channelId = str(channelId)
+    def getLastPostId(self, my_channel_peer:str|int, to_channel_peer:str|int)->int|bool:
+        my_channel_peer = str(my_channel_peer)
+        to_channel_peer = str(to_channel_peer)
+        
         try:
-            with open(os.path.join(logs, LAST_ID_POSTS_FILE), 'r', encoding='utf-8') as f:
-                last_posts_ids:dict = json.loads(f.read())
-                return int(last_posts_ids[channelId])
+            with open(os.path.join(LOGS_DIR, LAST_ID_POSTS_FILE), 'r', encoding='utf-8') as f:
+                content = f.read()
+                if not content:
+                    return False
+
+                json_data:dict = json.loads(content)
+                
+                if json_data:
+                    to_channels = json_data.get(my_channel_peer)
+                    if to_channels:
+                        last_post_id = to_channels.get(to_channel_peer)
+                        if last_post_id:
+                            return int(last_post_id)
+
+                return False
+                
         except FileNotFoundError:
-            logging.error(f'Файл {LAST_ID_POSTS_FILE} не найден')
             return False
         except Exception as e:
             logging.error(e)
@@ -106,7 +153,20 @@ class MiddleWare:
 *** Спарсен новый пост с канала: {id_channel} ***
 ''')
     
-    
+
+# async def send_photo_to_channel(client: TelegramClient, target_channel_id, media_list, caption=""):
+#     """Отправляет фото в целевой канал."""
+#     try:
+
+#         # Явно указываем тип InputMediaPhoto
+#         await client.send_file(
+#             entity=target_channel_id,
+#             file=media_list,  # Отправляем один объект InputMediaPhoto
+#             caption=caption,
+#         )
+#         print("Фото успешно отправлено!")
+#     except Exception as e:
+#         print(f"Ошибка при отправке фото: {e}")
 
 
 class ParserActions(MiddleWare, SessionConnect, Logs):
@@ -136,49 +196,106 @@ class ParserActions(MiddleWare, SessionConnect, Logs):
         self.limit_msg = limit
         self.timeout = timeout
     
+    
+    
+    async def __get_history(self, channel_peer) -> dict[int, dict]:
+        history = await self.client(GetHistoryRequest(
+            peer=channel_peer,
+            offset_id=OFFSET_MSG,
+            offset_date=None, add_offset=0,
+            limit=self.limit_msg, max_id=0, min_id=0,
+            hash=0
+        ))
+
+        __messages: list[Message] = history.messages
+        messages: list[Message] = []
+        result_messages: dict[int, dict] = {}
+
+        for message in __messages:
+            if message.id == 1:
+                continue
+            messages.insert(0, message)
+
+        for message in messages:
+            
+            grouped_id: int | None = message.grouped_id # Используем .get()
+            mixed_id = str(grouped_id or message.id)
+
+            media = message.media  # Безопасное получение media
+
+            if isinstance(media, MessageMediaDocument):
+                media = InputDocument(media.document.id, media.document.access_hash, media.document.file_reference)
+            elif isinstance(media, MessageMediaPhoto):
+                media = InputPhoto(media.photo.id, media.photo.access_hash, media.photo.file_reference)
+            elif isinstance(media, MessageMediaWebPage):
+                media = None
+            else:
+                print(type(media))
+                raise TypeError("Неожидаемый тип документа")
+
+
+            if result_messages.get(mixed_id):
+                if media:
+                    result_messages[mixed_id]["album_media"].append(media)
+                result_messages[mixed_id]["id"] = message.id
+                if message.message:
+                    result_messages[mixed_id]["message"] = message
+                continue
+
+            res_message = {
+                "id": message.id,
+                "channel_id": message.peer_id.channel_id,
+                "grouped_id": grouped_id,
+                "message": message,
+                "album_media": [media] if media else []  # Добавляем InputMedia
+            }
+
+            result_messages[mixed_id] = res_message
+
+        return result_messages
+        
+    
     async def dump_all_messages(self):
-        offset_msg = 0
 
         for channel in self.info_channels:
             logging.info(f'Запуск парсинга канала: {channel}')
 
-            try:
-                history = await self.client(GetHistoryRequest(
-                peer=channel,
-                offset_id=offset_msg,
-                offset_date=None, add_offset=0,
-                limit=self.limit_msg, max_id=0, min_id=0,
-                hash=0
-                ))
-            except Exception as e:
-                logging.error(f'Ошибка при получении истории постов канала: {channel}, {e}')
-                continue
+            messages = await self.__get_history(channel)
+            messages = list(messages.values())
 
-            messages = history.messages
-            i = len(messages)-1
 
-            while i > -1:
-                try:
-                    channel_id = messages[i].to_dict()['peer_id']['channel_id']
-                    post_id = messages[i].to_dict()['id']
-                except Exception as e:
-                    logging.error(f'Ошибка при получении id поста: {e}')
-                    continue
-                last_post_id = self.getLastPostId(channel_id)
+            for message in messages:
+                to_channel_id = message['channel_id']
+                message_id = message['id']
 
-                
-                if not last_post_id or post_id > last_post_id:
-                    for my_channel_id in self.to_channels:
+                for my_channel_peer in self.to_channels:
+                    last_post_id = self.getLastPostId(my_channel_peer, to_channel_id)
+                    
+                    if not last_post_id or message_id > last_post_id:
                         try:
-                            await self.client.send_message(my_channel_id, messages[i])
-                        except Exception as e:
-                            continue
-                        MiddleWare.sendPost(self, channel_id)
-                        await asyncio.sleep(self.timeout)
-                    self.writeLastPostId(channel_id, post_id)
-                    continue
-                i-=1
+                            media_list: list = message["album_media"]
+                            # await send_photo_to_channel(self.client, my_channel_peer, media_list, "Тестовое сообщение")
+                            # return
 
+                            await self.client.send_message(
+                                my_channel_peer,
+                                message["message"],
+                                file=media_list if len(media_list) else None,
+                                parse_mode="markdown",
+                            )
+                            
+                            MiddleWare.sendPost(self, to_channel_id)
+                            self.writeLastPostId(my_channel_peer, to_channel_id, message_id)
+                        except MediaCaptionTooLongError:
+                            print("Сообщение превысило допустимую длину! Оно не опубликовалось.")
+                            logging.error("Сообщение превысило допустимую длину! Оно не опубликовалось.")
+
+                        except Exception as e:
+                            logging.error(f"Ошибка при отправке сообщения: {e}")
+                            print(f"Ошибка при отправке сообщения: {e}")
+
+
+                await asyncio.sleep(self.timeout)
 
 
 class MyParser(ParserActions):
@@ -190,21 +307,13 @@ class MyParser(ParserActions):
     
     async def _main(self):
         while True:
-            try:
-                # С помощью метода self.client.get_entity(channel) ложим в список информацию о каждом канале
-                self.info_channels = [await self.client.get_entity(channel) for channel in self.info_channels]
-            except Exception as e:
-                logging.error(f'Ошибка при получении информации о каналах: {e}')
-                continue
+            # С помощью метода self.client.get_entity(channel) ложим в список информацию о каждом канале
+            self.info_channels = [await self.client.get_entity(channel) for channel in self.info_channels]
             # Запускаем функцию для дампа сообщений из каналов
-            try:
-                await self.dump_all_messages()
-            except Exception as e:
-                logging.error(f'Ошибка при парсинге каналов: {e}')
-                continue
+            await self.dump_all_messages()
             await asyncio.sleep(self.timeout) # Задержка между парсингом каналов в секундах
     
-    async def parse(self, info_channels:list, to_channels:list, limit:int=5, timeout:int=15):
+    async def parse(self, info_channels:list, to_channels:list, limit:int=5, timeout:int=5):
         ParserActions.__init__(self, info_channels, to_channels, limit, timeout)
         await SessionConnect.__call__(self)
         

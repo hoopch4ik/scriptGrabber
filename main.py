@@ -1,8 +1,7 @@
-from grabber.config import API_ID, API_HASH, SESSION_NAME
+from config import API_ID, API_HASH, SESSION_NAME
 from grabber.utils.parserPosts import MyParser
 
 import os
-import threading
 import asyncio
 
 telegram_data = {
@@ -11,12 +10,12 @@ telegram_data = {
     "session_name": SESSION_NAME
 }
 
-cfg_dir = 'grabber/config'
+
 
 async def main():
     
     # Открываем файл info_channels для чтения (в нём лежать каналы, группы источники)
-    with open(os.path.join(cfg_dir, 'info_channels.txt'), 'r') as f:
+    with open(os.path.join('./grabber/config', 'info_channels.txt'), 'r') as f:
         f.seek(0)
         readlines = f.readlines()
         info_channels = []
@@ -28,7 +27,7 @@ async def main():
                 info_channels.append(line.strip())
     
     # Открываем файл to_channels для чтения (в нём лежат каналы, группы назначения)
-    with open(os.path.join(cfg_dir, 'to_channels.txt'), 'r') as f:
+    with open(os.path.join('./grabber/config', 'to_channels.txt'), 'r') as f:
         f.seek(0)
         readlines = f.readlines()
         to_channels = []
@@ -49,7 +48,6 @@ async def main():
 
 
 if __name__ == '__main__':
-    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
